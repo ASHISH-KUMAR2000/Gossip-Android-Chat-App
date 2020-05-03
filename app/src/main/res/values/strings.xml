@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Gossip</string>
+    <string name="welcome">Welcome.</string>
+    <string name="connect_to_world">Let\'s connect to the world.</string>
+    <string name="shall_we">Shall We!!</string>
+    <string name="get_started">Get Started</string>
+    <string name="email">Email Id</string>
+    <string name="password">Password</string>
+    <string name="login">Login</string>
+    <string name="create_account">Create Account</string>
+    <string name="or">or</string>
+    <string name="username">Username</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="change_current_dp">Change Current Display Image</string>
+    <string name="default_dp_message">Or let this cat be your dp.</string>
+    <string name="change_dp">Change Dp</string>
+    <string name="title_activity_chat_list">ChatListActivity</string>
+    <string name="add_friend_description">Please Enter the Phone number of Your friend.</string>
+    <string name="add_friend">Add Friend</string>
+    <string name="no_chat_history">No Chat History</string>
+    <string name="satya_yuga">Satya Yuga</string>
+    <string name="send_message">Send Message</string>
+    <string name="empty">Empty</string>
+    <string name="action_signout">Signout</string>
+</resources>

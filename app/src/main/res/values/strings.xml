@@ -22,4 +22,5 @@
     <string name="send_message">Send Message</string>
     <string name="empty">Empty</string>
     <string name="action_signout">Signout</string>
+    <string name="dummy">Empty</string>
 </resources>

@@ -45,13 +45,12 @@ import java.util.Objects;
 
 public class ChatListActivity extends AppCompatActivity {
 
-    //private static final String TAG = "ChatListActivity";
+    private static final String TAG = "ChatListActivity";
     private List<FriendsInfo> friendsInfoList;
 
     FirebaseAuth firebaseAuth;
     FirebaseUser currentUser ;
-    //A flag to ensure that recycler adapter is just called once
-    boolean flag = true;
+    boolean firstTime = true;
 
 
     FirebaseFirestore db ;
@@ -123,70 +122,100 @@ public class ChatListActivity extends AppCompatActivity {
                                     Toast.LENGTH_LONG).show();
                         } else {
                             if(!queryDocumentSnapshots.isEmpty()) {
-                                friendsInfoList.clear();
-                                for (DocumentSnapshot documentChange : queryDocumentSnapshots) {
-                                    DocumentSnapshot snapshot  = documentChange;
+                                //friendsInfoList.clear();
+                                if(firstTime==true) {
+                                    for (DocumentSnapshot document : queryDocumentSnapshots) {
+                                        DocumentSnapshot snapshot = document;
 
-                                    //snapshot to object
-                                    String friendUserId, friendUserName, friendDpUrl, lastMessage;
-                                    Timestamp timeAdded;
+                                        //snapshot to object
+                                        FriendsInfo friend = snapshotToObject(snapshot);
+                                        friendsInfoList.add(friend);
+                                        Log.d(TAG, "Exist"+" " + friend.getFriendUserName());
 
-                                    friendUserId = snapshot.getString("friendUserId");
-                                    friendUserName = snapshot.getString("friendUserName");
-                                    friendDpUrl = snapshot.getString("friendDpUrl");
-                                    lastMessage = snapshot.getString("lastMessage");
 
-                                    FriendsInfo friend = new FriendsInfo(
-                                            friendUserId,
-                                            friendUserName,
-                                            friendDpUrl
-                                    );
+                                    }
+                                    Collections.sort(friendsInfoList, new Comparator<FriendsInfo>() {
+                                        @Override
+                                        public int compare(FriendsInfo o1, FriendsInfo o2) {
+                                            try {
+                                                //sorting in ascending order
+                                                if (o1.getTimeAdded() != null && o2.getTimeAdded() != null)
+                                                    return o2.getTimeAdded().compareTo(o1.getTimeAdded());
+                                                else if (o1.getTimeAdded() == null)
+                                                    return 1;
+                                                else if (o2.getTimeAdded() == null)
+                                                    return -1;
+                                                else
+                                                    return -1;
+                                            } catch (Exception e) {
+                                                //Log.d(TAG, e.getMessage());
+                                                return 0;
+                                            }
+                                        }
+                                    });
 
-                                    if(!TextUtils.isEmpty(lastMessage)) {
-                                        long time = snapshot.getTimestamp("timeAdded").getSeconds()*1000;
-                                        timeAdded = new Timestamp(time);
-                                        friend.setLastMessage(lastMessage);
-                                        friend.setTimeAdded(timeAdded);
+                                    if (friendsInfoList.size() != 0 ) {
+                                        //Invoke Recycler View
+                                        friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
+                                                friendsInfoList);
+                                        recyclerView.setAdapter(friendListRecyclerAdapter);
+                                        firstTime=false;
                                     }
 
-                                    friendsInfoList.add(friend);
+                                    friendListRecyclerAdapter.notifyDataSetChanged();
+                                } else {
+                                    if(!queryDocumentSnapshots.getDocumentChanges().isEmpty()){
+                                        //friendsInfoList.clear();
+                                        for(DocumentChange documentChange : queryDocumentSnapshots.getDocumentChanges()){
+                                            switch ( (documentChange.getType())){
+                                                case ADDED:
+                                                    DocumentSnapshot snapshot = documentChange.getDocument();
 
-                                }
-                                Collections.sort(friendsInfoList, new Comparator<FriendsInfo>() {
-                                    @Override
-                                    public int compare(FriendsInfo o1, FriendsInfo o2) {
-                                        try {
-                                            //sorting in ascending order
-                                            if(o1.getTimeAdded()!=null&&o2.getTimeAdded()!=null)
-                                                return o2.getTimeAdded().compareTo(o1.getTimeAdded());
-                                            else if(o1.getTimeAdded()==null)
-                                                return 1;
-                                            else if(o2.getTimeAdded()==null)
-                                                return -1;
-                                            else
-                                                return -1;
-                                        } catch (Exception e) {
-                                            //Log.d(TAG, e.getMessage());
-                                            return 0;
+                                                    //snapshot to object
+                                                    FriendsInfo friend = snapshotToObject(snapshot);
+                                                    friendsInfoList.add(friend);
+                                                    if(firstTime==true){
+                                                        //Invoke Recycler View
+                                                        friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
+                                                                friendsInfoList);
+                                                        recyclerView.setAdapter(friendListRecyclerAdapter);
+                                                        firstTime=false;
+                                                    }
+                                                    friendListRecyclerAdapter.notifyDataSetChanged();
+                                                    Log.d(TAG, "ADDED"+" "+friend.getFriendUserName());
+                                            }
                                         }
                                     }
-                                });
-
-                                if(friendsInfoList.size() != 0 && flag ){
-                                    //Invoke Recycler View
-                                    friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
-                                            friendsInfoList);
-                                    recyclerView.setAdapter(friendListRecyclerAdapter);
-                                    flag = false;
                                 }
-
-                                friendListRecyclerAdapter.notifyDataSetChanged();
-
 
                             }
                         }
                     }
                 });
+    }
+
+    FriendsInfo snapshotToObject(DocumentSnapshot snapshot){
+        String friendUserId, friendUserName, friendDpUrl, lastMessage;
+        Timestamp timeAdded;
+        friendUserId = snapshot.getString("friendUserId");
+        friendUserName = snapshot.getString("friendUserName");
+        friendDpUrl = snapshot.getString("friendDpUrl");
+        lastMessage = snapshot.getString("lastMessage");
+
+        FriendsInfo friend = new FriendsInfo(
+                friendUserId,
+                friendUserName,
+                friendDpUrl
+        );
+
+        if (!TextUtils.isEmpty(lastMessage)) {
+            long time = snapshot.getTimestamp("timeAdded").getSeconds() * 1000;
+            timeAdded = new Timestamp(time);
+            friend.setLastMessage(lastMessage);
+            friend.setTimeAdded(timeAdded);
+        }
+
+        return friend;
     }
 
 

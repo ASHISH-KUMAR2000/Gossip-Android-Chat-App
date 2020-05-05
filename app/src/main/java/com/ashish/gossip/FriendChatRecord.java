@@ -120,7 +120,6 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
 
         //Get FriendName to set it on title
         userReference = db.collection("Users");
-
         userReference.whereEqualTo("userId", friendUserId)
                 .addSnapshotListener(new EventListener<QuerySnapshot>() {
                     @Override

@@ -23,4 +23,6 @@
     <string name="empty">Empty</string>
     <string name="action_signout">Signout</string>
     <string name="dummy">Empty</string>
+    <string name="channel_name">Notification channel name</string>
+    <string name="channel_description">Notification channel description</string>
 </resources>

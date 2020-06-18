@@ -19,6 +19,9 @@
         android:ems="10"
         android:hint="@string/send_message"
         android:inputType="textMultiLine"
+        android:padding="6dp"
+        android:maxLines="4"
+        android:background="@drawable/rounded_rectangle_white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.52"
@@ -32,12 +35,14 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="32dp"
+        android:layout_marginBottom="16dp"
         android:src="@android:drawable/ic_menu_send"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.642"
         app:layout_constraintStart_toEndOf="@+id/friend_chat_send_message_editText"
-        app:layout_constraintTop_toBottomOf="@+id/friend_chat_recyclerView" />
+        app:layout_constraintTop_toBottomOf="@+id/friend_chat_recyclerView"
+        app:layout_constraintVertical_bias="1.0" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/friend_chat_recyclerView"

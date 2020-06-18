@@ -3,6 +3,8 @@ package com.ashish.gossip;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -56,10 +58,10 @@ import java.util.Stack;
 
 public class FriendChatRecord extends AppCompatActivity implements View.OnClickListener {
 
+    private static final String CHANNEL_ID = "666";
+    int UNIQUE_ID = 0;
     //private static final String TAG = "FriendChatRecord";
     private String friendUserId, friendUserName;
-    String messageText, userNameText, userIdText;
-    Timestamp timeAdded;
     UploadInfoToFriendDb obj ;
     private FriendsInfo lastChatMessage;
     private boolean flag = true;
@@ -76,7 +78,7 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
 
     FirebaseFirestore db;
     CollectionReference collectionReference, userReference;
-    //DocumentReference friendDocumentReference;
+    CollectionReference friendCollectionReference;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +93,6 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
         messageEditView = findViewById(R.id.friend_chat_send_message_editText);
 
         recyclerView = findViewById(R.id.friend_chat_recyclerView);
-        recyclerView.setHasFixedSize(true);
         linearLayoutManager = new LinearLayoutManager(this);
         //linearLayoutManager.setReverseLayout(true);
         linearLayoutManager.setSmoothScrollbarEnabled(true);
@@ -100,12 +101,6 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
         UserApi userApi = UserApi.getInstance();//Global Api
 
         db = FirebaseFirestore.getInstance();
-
-//        //For updating last message at friend end for friend list
-//        friendDocumentReference = db.collection("Chat")
-//                .document(friendUserId)
-//                .collection("FriendChatRecord")
-//                .document(userApi.getUserId());
 
         lastChatMessage = new FriendsInfo();
         firebaseAuth = FirebaseAuth.getInstance();
@@ -117,6 +112,9 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
                 .document(friendUserId)
                 .collection("ChatHistory");
 
+        friendCollectionReference = db.collection("Chat")
+                .document(userApi.getUserId())
+                .collection("FriendLastMessage");
 
         //Get FriendName to set it on title
         userReference = db.collection("Users");
@@ -139,54 +137,110 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
         messageList = new ArrayList<>();
 
         //Real time listener
+        getFriendsDataFromFireStore();
+        sendMessageButton.setOnClickListener(this);
+
+        //Check if someone else messaged you
+        otherMessageListener();
+
+
+    }
+
+    private void otherMessageListener() {
+        friendCollectionReference
+                .addSnapshotListener(new EventListener<QuerySnapshot>() {
+                    @Override
+                    public void onEvent(@Nullable QuerySnapshot queryDocumentSnapshots,
+                                        @Nullable FirebaseFirestoreException e) {
+                        if(e!=null){
+                            return ;
+                        } else if(!queryDocumentSnapshots.getDocumentChanges().isEmpty()){
+                            for(DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()){
+                                switch (dc.getType()){
+                                    case ADDED:
+                                        //New friend added
+                                        break;
+                                    case MODIFIED:
+                                        if(dc.getDocument().getString("friendUserId") != null
+                                        &&!dc.getDocument().getString("friendUserId").equals(friendUserId));
+                                        showNotificationMessageReceived(dc.getDocument());
+                                        break;
+                                }
+                            }
+                        }
+
+                    }
+                });
+    }
+
+    private void showNotificationMessageReceived(DocumentSnapshot documentSnapshot) {
+
+        if(false&&!documentSnapshot.getString("lastMessage").isEmpty()) {
+            NotificationCompat.Builder builderNew = new NotificationCompat.Builder(FriendChatRecord.this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.app_icon)
+                    .setContentTitle("Message Received")
+                    .setContentText(documentSnapshot.getString("friendUserName") + " - " + documentSnapshot.getString("lastMessage"))
+                    .setStyle(new NotificationCompat.BigTextStyle()
+                            .bigText("Much longer text that cannot fit one line..."))
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setAutoCancel(true);
+
+            NotificationManagerCompat notificationManagerNew = NotificationManagerCompat.from(FriendChatRecord.this);
+
+            // notificationId is a unique int for each notification that you must define
+            notificationManagerNew.notify(++UNIQUE_ID, builderNew.build());
+        }
+    }
+
+    private void getFriendsDataFromFireStore() {
         collectionReference
                 .addSnapshotListener(new EventListener<QuerySnapshot>() {
                     @Override
                     public void onEvent(@Nullable QuerySnapshot queryDocumentSnapshots,
                                         @Nullable FirebaseFirestoreException e) {
 
-                        if (e != null || queryDocumentSnapshots.getDocumentChanges().isEmpty()) {
+                        if (e != null) {
                             //Log.d(TAG, e.getMessage());
-                        } else {
+                        } else if(!queryDocumentSnapshots.getDocumentChanges().isEmpty()){
                             //messageList.clear();
                             for (DocumentChange documentChange : queryDocumentSnapshots.getDocumentChanges()) {
 
-                                if (documentChange.getType() == DocumentChange.Type.ADDED) {
+                                switch (documentChange.getType()){
+                                    case ADDED:
+                                        DocumentSnapshot doc = documentChange.getDocument();
 
-                                    DocumentSnapshot doc = documentChange.getDocument();
+                                        ChatMessage message = new ChatMessage();
+                                        message.setUserName(doc.getString("userName"));
 
-                                    ChatMessage message = new ChatMessage();
-                                    message.setUserName(doc.getString("userName"));
+                                        long time = doc.getTimestamp("timeAdded").getSeconds() * 1000;
+                                        Timestamp timestamp = new Timestamp(time);
+                                        message.setTimeAdded(timestamp);
+                                        message.setUserId(doc.getString("userId"));
+                                        message.setTextMessage(doc.getString("textMessage"));
 
-                                    long time = doc.getTimestamp("timeAdded").getSeconds() * 1000;
-                                    Timestamp timestamp = new Timestamp(time);
-                                    message.setTimeAdded(timestamp);
-                                    message.setUserId(doc.getString("userId"));
-                                    message.setTextMessage(doc.getString("textMessage"));
+                                        messageList.add(message);
 
-                                    messageList.add(message);
+                                        if (messageList.size() != 0 && flag) {
+                                            recyclerAdapter = new ChatRecordRecyclerAdapter(FriendChatRecord.this,
+                                                    messageList);
+                                            recyclerView.setAdapter(recyclerAdapter);
+                                            linearLayoutManager.smoothScrollToPosition(recyclerView,
+                                                    null,
+                                                    messageList.size() - 1);
+                                            flag = false;
+                                        }
 
-                                    if (messageList.size() != 0 && flag) {
-                                        recyclerAdapter = new ChatRecordRecyclerAdapter(FriendChatRecord.this,
-                                                messageList);
-                                        recyclerView.setAdapter(recyclerAdapter);
-                                        linearLayoutManager.smoothScrollToPosition(recyclerView,
-                                                null,
-                                                messageList.size() - 1);
-                                        flag = false;
-                                    }
-
-                                    if (messageList.size() != 0) {
-                                        Collections.sort(messageList, new Comparator<ChatMessage>() {
+                                        if (messageList.size() != 0) {
+                                            Collections.sort(messageList, new Comparator<ChatMessage>() {
                                             @Override
                                             public int compare(ChatMessage o1, ChatMessage o2) {
-                                                try {
-                                                    return o1.getTimeAdded().compareTo(o2.getTimeAdded());
-                                                } catch (Exception e) {
-                                                    //Log.d(TAG, e.getMessage());
-                                                    return 0;
+                                                    try {
+                                                        return o1.getTimeAdded().compareTo(o2.getTimeAdded());
+                                                    } catch (Exception e) {
+                                                        //Log.d(TAG, e.getMessage());
+                                                        return 0;
+                                                    }
                                                 }
-                                            }
                                         });
                                         recyclerAdapter.notifyDataSetChanged();
                                         linearLayoutManager.smoothScrollToPosition(recyclerView,
@@ -200,10 +254,6 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
                     }
 
                 });
-
-        sendMessageButton.setOnClickListener(this);
-
-
     }
 
     @Override
@@ -231,7 +281,7 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
             lastChatMessage.setTimeAdded(timestamp);
 
 
-
+            //Message to add on own database
             collectionReference.add(mess)
                     .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
                         @Override
@@ -248,6 +298,7 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
                         }
                     });
 
+            //Message to add on friend database
             //When you sent message to yourself
             //It should be updated only once in the database
             if(currentUser.getUid() != friendUserId) {

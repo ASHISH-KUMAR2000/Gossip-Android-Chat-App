@@ -1,6 +1,9 @@
 package com.ashish.gossip;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 
 import com.ashish.gossip.model.FriendsInfo;
@@ -26,6 +29,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -45,7 +50,8 @@ import java.util.Objects;
 
 public class ChatListActivity extends AppCompatActivity {
 
-    private static final String TAG = "ChatListActivity";
+    //private static final String TAG = "ChatListActivity";
+    private static final String CHANNEL_ID = "666";
     private List<FriendsInfo> friendsInfoList;
 
     FirebaseAuth firebaseAuth;
@@ -110,91 +116,112 @@ public class ChatListActivity extends AppCompatActivity {
 
         friendsInfoList = new ArrayList<>();
 
+        getFriendsDataFromFireStore();
+    }
+
+    private void getFriendsDataFromFireStore() {
         collectionReference
                 .addSnapshotListener(new EventListener<QuerySnapshot>() {
                     @Override
                     public void onEvent(@Nullable QuerySnapshot queryDocumentSnapshots,
                                         @Nullable FirebaseFirestoreException e) {
 
-                        if( e != null){
+                        if (e != null) {
                             Toast.makeText(ChatListActivity.this,
                                     "Please check your internet connection.\nTry again after sometime.",
                                     Toast.LENGTH_LONG).show();
                         } else {
-                            if(!queryDocumentSnapshots.isEmpty()) {
-                                //friendsInfoList.clear();
-                                if(firstTime==true) {
-                                    for (DocumentSnapshot document : queryDocumentSnapshots) {
-                                        DocumentSnapshot snapshot = document;
+                            if (!queryDocumentSnapshots.getDocumentChanges().isEmpty()) {
+                                for (DocumentChange document : queryDocumentSnapshots.getDocumentChanges()) {
+                                    switch (document.getType()) {
+                                        case ADDED:
+                                            DocumentSnapshot snapshot = document.getDocument();
+                                            //snapshot to object
+                                            FriendsInfo friend = snapshotToObject(snapshot);
+                                            friendsInfoList.add(friend);
+                                            //Log.d(TAG, "Exist" + " " + friend.getFriendUserName());
+                                            sortFriendList(friendsInfoList);
 
-                                        //snapshot to object
-                                        FriendsInfo friend = snapshotToObject(snapshot);
-                                        friendsInfoList.add(friend);
-                                        Log.d(TAG, "Exist"+" " + friend.getFriendUserName());
-
-
-                                    }
-                                    Collections.sort(friendsInfoList, new Comparator<FriendsInfo>() {
-                                        @Override
-                                        public int compare(FriendsInfo o1, FriendsInfo o2) {
-                                            try {
-                                                //sorting in ascending order
-                                                if (o1.getTimeAdded() != null && o2.getTimeAdded() != null)
-                                                    return o2.getTimeAdded().compareTo(o1.getTimeAdded());
-                                                else if (o1.getTimeAdded() == null)
-                                                    return 1;
-                                                else if (o2.getTimeAdded() == null)
-                                                    return -1;
-                                                else
-                                                    return -1;
-                                            } catch (Exception e) {
-                                                //Log.d(TAG, e.getMessage());
-                                                return 0;
+                                            if (friendsInfoList.size() != 0 && firstTime == true) {//Invoke Recycler View
+                                                friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
+                                                        friendsInfoList);
+                                                recyclerView.setAdapter(friendListRecyclerAdapter);
+                                                firstTime = false;
                                             }
-                                        }
-                                    });
 
-                                    if (friendsInfoList.size() != 0 ) {
-                                        //Invoke Recycler View
-                                        friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
-                                                friendsInfoList);
-                                        recyclerView.setAdapter(friendListRecyclerAdapter);
-                                        firstTime=false;
-                                    }
-
-                                    friendListRecyclerAdapter.notifyDataSetChanged();
-                                } else {
-                                    if(!queryDocumentSnapshots.getDocumentChanges().isEmpty()){
-                                        //friendsInfoList.clear();
-                                        for(DocumentChange documentChange : queryDocumentSnapshots.getDocumentChanges()){
-                                            switch ( (documentChange.getType())){
-                                                case ADDED:
-                                                    DocumentSnapshot snapshot = documentChange.getDocument();
-
-                                                    //snapshot to object
-                                                    FriendsInfo friend = snapshotToObject(snapshot);
-                                                    friendsInfoList.add(friend);
-                                                    if(firstTime==true){
-                                                        //Invoke Recycler View
-                                                        friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
-                                                                friendsInfoList);
-                                                        recyclerView.setAdapter(friendListRecyclerAdapter);
-                                                        firstTime=false;
-                                                    }
-                                                    friendListRecyclerAdapter.notifyDataSetChanged();
-                                                    Log.d(TAG, "ADDED"+" "+friend.getFriendUserName());
+                                            friendListRecyclerAdapter.notifyDataSetChanged();
+                                            break;
+                                        case MODIFIED:
+                                            snapshot = document.getDocument();
+                                            //snapshot to object
+                                            friend = snapshotToObject(snapshot);
+                                            for(int i=0 ; i < friendsInfoList.size() ; i++){
+                                                if(friendsInfoList.get(i).getFriendUserId().equals(friend.getFriendUserId())){
+                                                    friendsInfoList.set(i, friend);
+                                                }
                                             }
-                                        }
+                                            if(!TextUtils.isEmpty(friend.getLastMessage())) {
+
+                                                showNotificationMessageReceived(friend);
+                                                sortFriendList(friendsInfoList);
+
+                                                if (friendsInfoList.size() != 0 && firstTime == true) {
+                                                    //Invoke Recycler View
+                                                    friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
+                                                            friendsInfoList);
+                                                    recyclerView.setAdapter(friendListRecyclerAdapter);
+                                                    firstTime = false;
+                                                }
+                                            }
+                                            friendListRecyclerAdapter.notifyDataSetChanged();
+                                            break;
                                     }
                                 }
-
                             }
                         }
                     }
-                });
+                                });
     }
 
-    FriendsInfo snapshotToObject(DocumentSnapshot snapshot){
+    private void showNotificationMessageReceived(FriendsInfo friend) {
+        NotificationCompat.Builder builderNew = new NotificationCompat.Builder(ChatListActivity.this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.app_icon)
+                .setContentTitle("Message Received")
+                .setContentText(friend.getFriendUserName() + " - " + friend.getLastMessage())
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("Much longer text that cannot fit one line..."))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true);
+
+        NotificationManagerCompat notificationManagerNew = NotificationManagerCompat.from(ChatListActivity.this);
+
+        // notificationId is a unique int for each notification that you must define
+        notificationManagerNew.notify(friendsInfoList.size(), builderNew.build());
+    }
+
+    private void sortFriendList(List<FriendsInfo> friendsInfoList) {
+        Collections.sort(friendsInfoList, new Comparator<FriendsInfo>() {
+            @Override
+            public int compare(FriendsInfo o1, FriendsInfo o2) {
+                try {
+                    //sorting in ascending order
+                    if (o1.getTimeAdded() != null && o2.getTimeAdded() != null)
+                        return o2.getTimeAdded().compareTo(o1.getTimeAdded());
+                    else if (o1.getTimeAdded() == null)
+                        return 1;
+                    else if (o2.getTimeAdded() == null)
+                        return -1;
+                    else
+                        return -1;
+                } catch (Exception e) {
+                    //Log.d(TAG, e.getMessage());
+                    return 0;
+                }
+            }
+        });
+    }
+
+    private FriendsInfo snapshotToObject(DocumentSnapshot snapshot){
         String friendUserId, friendUserName, friendDpUrl, lastMessage;
         Timestamp timeAdded;
         friendUserId = snapshot.getString("friendUserId");
@@ -251,5 +278,23 @@ public class ChatListActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    //setting notification channel
+    //https://developer.android.com/training/notify-user/build-notification
+    private void createNotificationChannel(){
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = getString(R.string.channel_name);
+            String description = getString(R.string.channel_description);
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            channel.setDescription(description);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
     }
 }

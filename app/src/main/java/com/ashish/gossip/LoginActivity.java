@@ -106,7 +106,7 @@ public class LoginActivity extends AppCompatActivity implements View.OnClickList
                                                  //   Log.d(TAG, e.getMessage());
                                                     progressBar.setVisibility(View.INVISIBLE);
                                                     Toast.makeText(LoginActivity.this,
-                                                            "Something went wrong.\nPlease try again after some time.",
+                                                            "Something went wrong.\nPlease try after some time.",
                                                             Toast.LENGTH_LONG).show();
                                                 }
                                                 else {
@@ -137,7 +137,7 @@ public class LoginActivity extends AppCompatActivity implements View.OnClickList
                             } else {
                                 progressBar.setVisibility(View.INVISIBLE);
                                 Toast.makeText(LoginActivity.this,
-                                        "Something went wrong.\nPlease try again after sometime.",
+                                        "Check your internet connection",
                                         Toast.LENGTH_LONG).show();
 
                             }
@@ -155,7 +155,7 @@ public class LoginActivity extends AppCompatActivity implements View.OnClickList
                     });
         } else {
             Toast.makeText(LoginActivity.this,
-                    "Empty Text Not Allowed",
+                    "Empty Text Field Not Allowed",
                     Toast.LENGTH_SHORT).show();
         }
     }

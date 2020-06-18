@@ -26,6 +26,7 @@ import com.ashish.gossip.model.FriendsInfo;
 import com.ashish.gossip.model.User;
 import com.ashish.gossip.ui.ChatRecordRecyclerAdapter;
 import com.ashish.gossip.ui.UserApi;
+import com.ashish.gossip.util.NotificationUtil;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -59,7 +60,6 @@ import java.util.Stack;
 public class FriendChatRecord extends AppCompatActivity implements View.OnClickListener {
 
     private static final String CHANNEL_ID = "666";
-    int UNIQUE_ID = 0;
     //private static final String TAG = "FriendChatRecord";
     private String friendUserId, friendUserName;
     UploadInfoToFriendDb obj ;
@@ -80,12 +80,16 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
     CollectionReference collectionReference, userReference;
     CollectionReference friendCollectionReference;
 
+    NotificationUtil mNotificationUtil ;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_friend_chat_record);
         Intent intent = getIntent();
         friendUserId = intent.getStringExtra("friendUserId");
+
+        mNotificationUtil = new NotificationUtil(FriendChatRecord.this);
 
         obj = new UploadInfoToFriendDb();
 
@@ -161,9 +165,16 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
                                         //New friend added
                                         break;
                                     case MODIFIED:
-                                        if(dc.getDocument().getString("friendUserId") != null
-                                        &&!dc.getDocument().getString("friendUserId").equals(friendUserId));
-                                        showNotificationMessageReceived(dc.getDocument());
+                                        DocumentSnapshot snapshot = dc.getDocument();
+                                        //snapshot to object
+                                        FriendsInfo friend = snapshotToObject(snapshot);
+                                        if(friend.getFriendUserId() != null
+                                        &&!friend.getFriendUserId().equals(friendUserId)) {
+                                            //Log.d(TAG, "It's showing");
+                                            //Log.d(TAG, "\n\n\n"+friend.getFriendUserId()+" "+friendUserId+"\n\n\n");
+                                            mNotificationUtil.showNotificationMessageReceived(FriendChatRecord.this,
+                                                    friend);
+                                        }
                                         break;
                                 }
                             }
@@ -171,25 +182,6 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
 
                     }
                 });
-    }
-
-    private void showNotificationMessageReceived(DocumentSnapshot documentSnapshot) {
-
-        if(false&&!documentSnapshot.getString("lastMessage").isEmpty()) {
-            NotificationCompat.Builder builderNew = new NotificationCompat.Builder(FriendChatRecord.this, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.app_icon)
-                    .setContentTitle("Message Received")
-                    .setContentText(documentSnapshot.getString("friendUserName") + " - " + documentSnapshot.getString("lastMessage"))
-                    .setStyle(new NotificationCompat.BigTextStyle()
-                            .bigText("Much longer text that cannot fit one line..."))
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                    .setAutoCancel(true);
-
-            NotificationManagerCompat notificationManagerNew = NotificationManagerCompat.from(FriendChatRecord.this);
-
-            // notificationId is a unique int for each notification that you must define
-            notificationManagerNew.notify(++UNIQUE_ID, builderNew.build());
-        }
     }
 
     private void getFriendsDataFromFireStore() {
@@ -317,6 +309,30 @@ public class FriendChatRecord extends AppCompatActivity implements View.OnClickL
 
 
         }
+    }
+
+    private FriendsInfo snapshotToObject(DocumentSnapshot snapshot){
+        String friendUserId, friendUserName, friendDpUrl, lastMessage;
+        Timestamp timeAdded;
+        friendUserId = snapshot.getString("friendUserId");
+        friendUserName = snapshot.getString("friendUserName");
+        friendDpUrl = snapshot.getString("friendDpUrl");
+        lastMessage = snapshot.getString("lastMessage");
+
+        FriendsInfo friend = new FriendsInfo(
+                friendUserId,
+                friendUserName,
+                friendDpUrl
+        );
+
+        if (!TextUtils.isEmpty(lastMessage)) {
+            long time = snapshot.getTimestamp("timeAdded").getSeconds() * 1000;
+            timeAdded = new Timestamp(time);
+            friend.setLastMessage(lastMessage);
+            friend.setTimeAdded(timeAdded);
+        }
+
+        return friend;
     }
 
 }

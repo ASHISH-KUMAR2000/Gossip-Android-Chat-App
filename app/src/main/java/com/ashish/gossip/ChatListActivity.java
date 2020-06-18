@@ -10,6 +10,7 @@ import com.ashish.gossip.model.FriendsInfo;
 import com.ashish.gossip.ui.FriendListRecyclerAdapter;
 import com.ashish.gossip.ui.RecyclerItemClickListener;
 import com.ashish.gossip.ui.UserApi;
+import com.ashish.gossip.util.NotificationUtil;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -64,6 +65,9 @@ public class ChatListActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
     private FriendListRecyclerAdapter friendListRecyclerAdapter;
+
+    //For Notifications
+    NotificationUtil mNotificationUtil;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,6 +78,8 @@ public class ChatListActivity extends AppCompatActivity {
 
         Objects.requireNonNull(getSupportActionBar()).setElevation(0);
 
+
+        mNotificationUtil = new NotificationUtil(ChatListActivity.this);
 
         firebaseAuth = FirebaseAuth.getInstance();
         currentUser  = firebaseAuth.getCurrentUser();
@@ -142,7 +148,8 @@ public class ChatListActivity extends AppCompatActivity {
                                             //Log.d(TAG, "Exist" + " " + friend.getFriendUserName());
                                             sortFriendList(friendsInfoList);
 
-                                            if (friendsInfoList.size() != 0 && firstTime == true) {//Invoke Recycler View
+                                            //Create Recycler View Adapter for first time
+                                            if (friendsInfoList.size() != 0 && firstTime == true) {
                                                 friendListRecyclerAdapter = new FriendListRecyclerAdapter(ChatListActivity.this,
                                                         friendsInfoList);
                                                 recyclerView.setAdapter(friendListRecyclerAdapter);
@@ -155,14 +162,18 @@ public class ChatListActivity extends AppCompatActivity {
                                             snapshot = document.getDocument();
                                             //snapshot to object
                                             friend = snapshotToObject(snapshot);
+                                            //Find the position in recycle viewer list where data is changed
                                             for(int i=0 ; i < friendsInfoList.size() ; i++){
                                                 if(friendsInfoList.get(i).getFriendUserId().equals(friend.getFriendUserId())){
                                                     friendsInfoList.set(i, friend);
                                                 }
                                             }
+
+                                            //Update last message history if something is modified
                                             if(!TextUtils.isEmpty(friend.getLastMessage())) {
 
-                                                showNotificationMessageReceived(friend);
+                                                //showNotificationMessageReceived(friend);
+                                                mNotificationUtil.showNotificationMessageReceived(ChatListActivity.this, friend);
                                                 sortFriendList(friendsInfoList);
 
                                                 if (friendsInfoList.size() != 0 && firstTime == true) {
@@ -181,22 +192,6 @@ public class ChatListActivity extends AppCompatActivity {
                         }
                     }
                                 });
-    }
-
-    private void showNotificationMessageReceived(FriendsInfo friend) {
-        NotificationCompat.Builder builderNew = new NotificationCompat.Builder(ChatListActivity.this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.app_icon)
-                .setContentTitle("Message Received")
-                .setContentText(friend.getFriendUserName() + " - " + friend.getLastMessage())
-                .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText("Much longer text that cannot fit one line..."))
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setAutoCancel(true);
-
-        NotificationManagerCompat notificationManagerNew = NotificationManagerCompat.from(ChatListActivity.this);
-
-        // notificationId is a unique int for each notification that you must define
-        notificationManagerNew.notify(friendsInfoList.size(), builderNew.build());
     }
 
     private void sortFriendList(List<FriendsInfo> friendsInfoList) {
@@ -278,23 +273,5 @@ public class ChatListActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
-    }
-
-    //setting notification channel
-    //https://developer.android.com/training/notify-user/build-notification
-    private void createNotificationChannel(){
-        // Create the NotificationChannel, but only on API 26+ because
-        // the NotificationChannel class is new and not in the support library
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = getString(R.string.channel_name);
-            String description = getString(R.string.channel_description);
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-            channel.setDescription(description);
-            // Register the channel with the system; you can't change the importance
-            // or other notification behaviors after this
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
-        }
     }
 }

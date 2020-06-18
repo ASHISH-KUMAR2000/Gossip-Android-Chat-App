@@ -4,20 +4,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.RecyclerView;
 
-import android.Manifest;
 import android.Manifest.permission;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.BaseColumns;
 import android.provider.ContactsContract;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -27,22 +22,21 @@ import android.widget.Toast;
 
 import com.ashish.gossip.model.FriendsInfo;
 import com.ashish.gossip.ui.UserApi;
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
-import com.squareup.picasso.Picasso;
 
-import java.sql.Array;
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.google.android.material.internal.ContextUtils.getActivity;
 
 public class AddFriendActivity extends AppCompatActivity {
 
@@ -211,9 +205,9 @@ public class AddFriendActivity extends AppCompatActivity {
                 .addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
                     @Override
                     public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
-                        if(!queryDocumentSnapshots.isEmpty()){
+                        if (!queryDocumentSnapshots.isEmpty()) {
 
-                            for(QueryDocumentSnapshot snapshot : queryDocumentSnapshots){
+                            for (QueryDocumentSnapshot snapshot : queryDocumentSnapshots) {
                                 FriendsInfo friendsInfo = new FriendsInfo();
 
                                 friendsInfo.setFriendUserId(snapshot.getString("userId"));
@@ -226,8 +220,11 @@ public class AddFriendActivity extends AppCompatActivity {
 
                             //Add this friend to Chat/userId/FriendLastMessage
 
-                            if(friendsInfoList.size()!=0){
-                                addFriendToUserDataBase();
+                            if (friendsInfoList.size() != 0) {
+                                //if user is already a friend
+                                //then he will be not added again to the database
+                                alreadyFriend(friendsInfoList);
+                                //addFriendToUserDataBase();
                             }
                         } else {
                             progressBar.setVisibility(View.INVISIBLE);
@@ -245,6 +242,36 @@ public class AddFriendActivity extends AppCompatActivity {
                                 "There is no one with this phone number.",
                                 Toast.LENGTH_LONG).show();
                         //Log.d(TAG, "Failed "+e.getMessage());
+                    }
+                });
+    }
+
+    private void alreadyFriend(List<FriendsInfo> friendsInfoList) {
+        FriendsInfo friendsInfo = friendsInfoList.get(0);
+        db.collection("Chat")
+                .document(currentUser.getUid())
+                .collection("FriendLastMessage")
+                .document(friendsInfo.getFriendUserId())
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                        if(task.isSuccessful()){
+                            DocumentSnapshot dc = task.getResult();
+                            if(dc.exists()){
+                                Toast.makeText(AddFriendActivity.this,
+                                        "Already friend with him",
+                                        Toast.LENGTH_LONG).show();
+                                progressBar.setVisibility(View.INVISIBLE);
+                            }
+                            else{
+                                addFriendToUserDataBase();
+                            }
+                        } else {
+                            Toast.makeText(AddFriendActivity.this,
+                                    "Check your internet connection",
+                                    Toast.LENGTH_LONG).show();
+                        }
                     }
                 });
     }
